@@ -1,0 +1,39 @@
+name: Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unzip project
+        run: |
+          ZIP=$(ls *.zip 2>/dev/null | head -n1)
+          if [ -z "$ZIP" ]; then echo "No .zip file found in the repo root. Upload group-hisaab-android.zip first."; exit 1; fi
+          echo "Using $ZIP"
+          mkdir project
+          unzip -q "$ZIP" -d project
+          SETTINGS=$(find project -name settings.gradle | head -n1)
+          if [ -z "$SETTINGS" ]; then echo "settings.gradle not found inside the zip."; exit 1; fi
+          echo "DIR=$(dirname "$SETTINGS")" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build debug APK
+        run: gradle assembleDebug --no-daemon -p "$DIR"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: group-hisaab-apk
+          path: ${{ env.DIR }}/app/build/outputs/apk/debug/app-debug.apk
